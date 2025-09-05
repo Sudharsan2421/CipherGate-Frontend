@@ -918,7 +918,7 @@ const WorkerManagement = () => {
                 <div className="grid grid-cols-3 gap-3">
                   {selectedWorker.facePhotos.map((facePhoto, index) => {
                     console.log(`Face photo ${index + 1} URL:`, facePhoto);
-                    const photoUrl = facePhoto.startsWith('http') ? facePhoto : `http://localhost:5001${facePhoto}`;
+                    const photoUrl = facePhoto.startsWith('http') ? facePhoto : `https://ciphergate-backend.onrender.com${facePhoto}`;
                     return (
                       <div key={index} className="relative">
                         <img
