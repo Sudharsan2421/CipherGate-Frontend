@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { registerAdmin, subdomainAvailable } from '../../services/authService';
-import { FaLink } from "react-icons/fa6";
-import { motion } from 'framer-motion';
+// Note: `react-router-dom`, `react-toastify` and `framer-motion` are external libraries
+// and cannot be used in a single, self-contained file.
+// So, we will replace their functionality with local state and styling.
 
 const AdminRegister = () => {
   const [formData, setFormData] = useState({
@@ -15,44 +13,58 @@ const AdminRegister = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [domainAvailable, setDomainAvailable] = useState(true);
-  const navigate = useNavigate();
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Generate floating particles for background animation
-  const particles = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    duration: Math.random() * 20 + 10,
-    delay: Math.random() * 5
-  }));
+  // Instead of an external library for icons, we use an inline SVG.
+  const FaLinkSVG = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.178-1.179m-1.178-5.656l1.178 1.178a4 4 0 105.656-5.656l-4-4a4 4 0 10-5.656 0" />
+    </svg>
+  );
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setMessage(''); // Clear message on input change
   };
 
   const handleSubdomainChange = async (e) => {
     const { name, value } = e.target;
     const formattedValue = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
     setFormData(prev => ({ ...prev, [name]: formattedValue }));
 
-    if (value.length <= 4) {
+    if (formattedValue.length < 5) {
       setDomainAvailable(false);
       return;
     }
 
+    // `subdomainAvailable` API-ku badhilaga, oru `promise`-a use pannurom.
+    // (Instead of the `subdomainAvailable` API, we use a simulated promise).
+    const subdomainAvailableSimulation = (subdomain) => new Promise((resolve) => {
+      setTimeout(() => {
+        const takenSubdomains = ['admin', 'test', 'invalid', 'mycompany'];
+        const isAvailable = !takenSubdomains.includes(subdomain.toLowerCase());
+        resolve({ available: isAvailable, message: isAvailable ? 'Subdomain is available.' : 'This company name is not available or too short.' });
+      }, 500); // 500ms delay to simulate network latency
+    });
+
     try {
-      await subdomainAvailable(formData)
-        .then(res => {
-          console.log(res);
-          setDomainAvailable(res.available);
-        })
-        .catch(e => console.error(e.message));
+      const res = await subdomainAvailableSimulation(formattedValue);
+      setDomainAvailable(res.available);
+      if (!res.available) {
+        setMessage(res.message);
+        setMessageType('error');
+      } else {
+        setMessage('Subdomain is available.');
+        setMessageType('success');
+      }
     } catch (error) {
-      console.error(error.message);
+      setMessage('Error checking subdomain availability.');
+      setMessageType('error');
     }
   };
 
@@ -60,117 +72,63 @@ const AdminRegister = () => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      setMessage('Passwords do not match');
+      setMessageType('error');
       return;
+    }
+    
+    if (formData.subdomain.length < 5 || !domainAvailable) {
+        setMessage('Please provide a valid company name.');
+        setMessageType('error');
+        return;
     }
 
     setIsLoading(true);
+    
+    // `registerAdmin` API-ku badhilaga, oru `promise`-a use pannurom.
+    // (Instead of the `registerAdmin` API, we use a simulated promise).
+    const registerAdminSimulation = () => new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // Simple success/failure logic based on a condition
+        if (formData.username && formData.email) {
+          resolve({ message: 'Registration successful!' });
+        } else {
+          reject({ message: 'Registration failed.' });
+        }
+      }, 1000); // 1000ms delay to simulate network latency
+    });
+
     try {
-      await registerAdmin(formData);
-      toast.success('Registration successful! Please login.');
-      navigate('/admin/login');
+      await registerAdminSimulation();
+      setMessage('Registration successful! Please login.');
+      setMessageType('success');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      setMessage(error.message || 'Registration failed');
+      setMessageType('error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Form field animation variants
-  const formFieldVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: (custom) => ({
-      opacity: 1, 
-      x: 0,
-      transition: { 
-        delay: 0.1 * custom,
-        duration: 0.5
-      }
-    })
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f1020] to-[#1a1a2e] text-white overflow-hidden relative">
-      {/* Animated Particles Background */}
-      {particles.map((particle) => (
-        <motion.div
-          key={particle.id}
-          className="absolute rounded-full bg-blue-500/20"
-          initial={{ 
-            x: `${particle.x}%`, 
-            y: `${particle.y}%`, 
-            opacity: 0.1 + Math.random() * 0.3 
-          }}
-          animate={{ 
-            x: [`${particle.x}%`, `${particle.x + (Math.random() * 10 - 5)}%`],
-            y: [`${particle.y}%`, `${particle.y - 20}%`],
-            opacity: [0.1 + Math.random() * 0.3, 0]
-          }}
-          transition={{ 
-            repeat: Infinity,
-            duration: particle.duration,
-            delay: particle.delay,
-            ease: "linear"
-          }}
-          style={{ 
-            width: `${particle.size}px`, 
-            height: `${particle.size}px` 
-          }}
-        />
-      ))}
-
-      {/* Animated Gradient Wave */}
-      <div className="absolute bottom-0 left-0 w-full h-48 overflow-hidden z-0">
-        <motion.div 
-          className="absolute w-[200%] h-40 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 rounded-t-full"
-          initial={{ x: "0%" }}
-          animate={{ x: "-100%" }}
-          transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-          style={{ bottom: -20 }}
-        />
-        <motion.div 
-          className="absolute w-[200%] h-40 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 rounded-t-full"
-          initial={{ x: "-100%" }}
-          animate={{ x: "0%" }}
-          transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
-          style={{ bottom: -15 }}
-        />
-      </div>
-
-      {/* Register Container */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-[85%] max-w-md z-10 bg-[#121630]/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-[#2a3260] mx-auto my-10"
-      >
-        {/* Register Title with Animated Underline */}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f1020] to-[#1a1a2e] text-white relative">
+      <div className="w-[85%] max-w-md z-10 bg-[#121630]/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-[#2a3260] mx-auto my-10">
         <div className="mb-6 text-center">
-          <motion.h1 
-            className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600"
-            initial={{ y: -20 }}
-            animate={{ y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
+          <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
             Create Admin Account
-          </motion.h1>
-          <motion.div 
-            className="h-1 bg-blue-500 rounded-full w-0 mx-auto mt-2"
-            initial={{ width: 0 }}
-            animate={{ width: "80px" }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-          />
+          </h1>
+          <div className="h-1 bg-blue-500 rounded-full w-20 mx-auto mt-2" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {message && (
+            <div className={`p-3 rounded-lg text-sm text-center ${messageType === 'error' ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}>
+              {message}
+            </div>
+          )}
+
           {/* Username Field */}
-          <motion.div 
-            className="form-group"
-            variants={formFieldVariants}
-            initial="hidden"
-            animate="visible"
-            custom={1}
-          >
+          <div className="form-group">
             <label htmlFor="username" className="text-gray-300 flex items-center text-sm font-medium mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
@@ -187,18 +145,12 @@ const AdminRegister = () => {
               required
               placeholder="Enter your username"
             />
-          </motion.div>
+          </div>
 
           {/* Subdomain Field */}
-          <motion.div 
-            className="form-group"
-            variants={formFieldVariants}
-            initial="hidden"
-            animate="visible"
-            custom={2}
-          >
+          <div className="form-group">
             <label htmlFor="subdomain" className="text-gray-300 flex items-center text-sm font-medium mb-2">
-              <FaLink className="h-4 w-4 mr-2 text-blue-400" />
+              <FaLinkSVG />
               Company name
             </label>
             <input
@@ -211,21 +163,10 @@ const AdminRegister = () => {
               required
               placeholder="Enter your company name"
             />
-            {!domainAvailable && (
-              <p className="text-red-400 text-xs mt-1">
-                This company name is not available or too short
-              </p>
-            )}
-          </motion.div>
+          </div>
 
           {/* Email Field */}
-          <motion.div 
-            className="form-group"
-            variants={formFieldVariants}
-            initial="hidden"
-            animate="visible"
-            custom={3}
-          >
+          <div className="form-group">
             <label htmlFor="email" className="text-gray-300 flex items-center text-sm font-medium mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -243,16 +184,10 @@ const AdminRegister = () => {
               required
               placeholder="Enter your email"
             />
-          </motion.div>
+          </div>
 
           {/* Password Field */}
-          <motion.div 
-            className="form-group relative"
-            variants={formFieldVariants}
-            initial="hidden"
-            animate="visible"
-            custom={4}
-          >
+          <div className="form-group relative">
             <label htmlFor="password" className="text-gray-300 flex items-center text-sm font-medium mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -289,16 +224,10 @@ const AdminRegister = () => {
                 )}
               </button>
             </div>
-          </motion.div>
+          </div>
 
           {/* Confirm Password Field */}
-          <motion.div 
-            className="form-group relative"
-            variants={formFieldVariants}
-            initial="hidden"
-            animate="visible"
-            custom={5}
-          >
+          <div className="form-group relative">
             <label htmlFor="confirmPassword" className="text-gray-300 flex items-center text-sm font-medium mb-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -335,22 +264,12 @@ const AdminRegister = () => {
                 )}
               </button>
             </div>
-          </motion.div>
+          </div>
 
           {/* Submit Button */}
-          <motion.button
+          <button
             type="submit"
             disabled={isLoading || !domainAvailable}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ 
-              type: "spring", 
-              duration: 0.5, 
-              delay: 0.6,
-              stiffness: 120 
-            }}
             className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed font-medium mt-2"
           >
             {isLoading ? (
@@ -362,25 +281,21 @@ const AdminRegister = () => {
                 Creating Account...
               </span>
             ) : 'Create Account'}
-          </motion.button>
+          </button>
         </form>
 
         {/* Login Link */}
-        <motion.p 
-          className="mt-6 text-center text-gray-400 text-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.7 }}
-        >
+        <p className="mt-6 text-center text-gray-400 text-sm">
           Already have an account?{' '}
-          <Link 
-            to="/admin/login" 
+          {/* We replace `Link` from `react-router-dom` with a simple anchor tag or styled div since routing isn't available here. */}
+          <a 
+            href="/admin/login" 
             className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
             Sign In
-          </Link>
-        </motion.p>
-      </motion.div>
+          </a>
+        </p>
+      </div>
     </div>
   );
 };
