@@ -12,6 +12,8 @@ const AdminAuth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const VITE_API_URL = "https://ciphergate-backend.onrender.com/api";
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -23,23 +25,40 @@ const AdminAuth = () => {
     setMessage('');
   };
 
-  const handleSubdomainChange = (e) => {
+  const handleSubdomainChange = async (e) => {
     const { value } = e.target;
     const formattedValue = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     setFormData(prev => ({ ...prev, subdomain: formattedValue }));
+    setMessage('');
 
-    // Simulating domain check
-    const isAvailable = !['test', 'admin', 'root'].includes(formattedValue);
-    setDomainAvailable(isAvailable);
-
-    if (!isAvailable) {
-      setMessage('This company name is not available.');
-      setMessageType('error');
-    } else if (formattedValue.length < 5) {
+    if (formattedValue.length >= 5) {
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${VITE_API_URL}/auth/admin/subdomain-available?subdomain=${formattedValue}`);
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        setDomainAvailable(data.isAvailable);
+        if (!data.isAvailable) {
+          setMessage('This company name is not available.');
+          setMessageType('error');
+        } else {
+          setMessage('This company name is available!');
+          setMessageType('success');
+        }
+      } catch (error) {
+        console.error('Error checking subdomain availability:', error);
+        setMessage('Failed to check company name availability.');
+        setMessageType('error');
+        setDomainAvailable(false);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
       setMessage('Company name must be at least 5 characters.');
       setMessageType('error');
-    } else {
-      setMessage('');
+      setDomainAvailable(false);
     }
   };
 
@@ -57,28 +76,34 @@ const AdminAuth = () => {
       setMessageType('error');
       return;
     }
-    
+
     setIsLoading(true);
 
     try {
-      // Simulate API call to register
-      // In a real app, you would make a POST request to your backend here
-      const response = await new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ success: true });
-        }, 1000);
+      const response = await fetch(`${VITE_API_URL}/auth/admin/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.username,
+          email: formData.email,
+          subdomain: formData.subdomain,
+          password: formData.password
+        }),
       });
 
-      if (response.success) {
-        setMessage('Registration successful! Please log in.');
-        setMessageType('success');
-        setIsRegistered(true);
-      } else {
-        setMessage('Registration failed. Please try again.');
-        setMessageType('error');
+      if (!response.ok) {
+        throw new Error('Registration failed.');
       }
+
+      setMessage('Registration successful! Please log in.');
+      setMessageType('success');
+      setIsRegistered(true);
+      setFormData({ username: '', email: '', subdomain: '', password: '' });
+      setConfirmPassword('');
     } catch (error) {
-      setMessage('An error occurred during registration.');
+      setMessage('An error occurred during registration. Please try again.');
       setMessageType('error');
     } finally {
       setIsLoading(false);
@@ -88,39 +113,14 @@ const AdminAuth = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
-    try {
-      // Simulate API call to login
-      // In a real app, you would make a POST request to your backend here
-      const response = await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (formData.username === 'testuser' && formData.password === 'password123') {
-            resolve({ success: true });
-          } else {
-            reject(new Error('Invalid username or password.'));
-          }
-        }, 1000);
-      });
-
-      if (response.success) {
-        setMessage('Login successful!');
-        setMessageType('success');
-        setIsLoggedIn(true);
-      }
-    } catch (error) {
-      setMessage(error.message);
-      setMessageType('error');
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // In a real app, you would make a POST request to your backend here
+    // For now, this is a placeholder since the backend is not working correctly
+    setMessage('Login is not yet supported. Please register for a new account.');
+    setMessageType('error');
+    setIsLoading(false);
   };
   
-  const FaLinkSVG = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.178-1.179m-1.178-5.656l1.178 1.178a4 4 0 105.656-5.656l-4-4a4 4 0 10-5.656 0" />
-    </svg>
-  );
-
   const renderAuthForm = () => {
     if (isRegistered) {
       return (
@@ -183,9 +183,9 @@ const AdminAuth = () => {
           </button>
           <p className="mt-4 text-center text-gray-400 text-sm">
             Don't have an account?{' '}
-            <button
-              type="button"
-              onClick={() => setIsRegistered(false)}
+            <button 
+              type="button" 
+              onClick={() => setIsRegistered(false)} 
               className="text-blue-400 hover:text-blue-300 font-medium"
             >
               Sign Up
@@ -236,7 +236,7 @@ const AdminAuth = () => {
               value={formData.subdomain}
               onChange={handleSubdomainChange}
               required
-              className={`w-full px-4 py-3 mt-2 bg-[#1d2451]/50 border ${domainAvailable ? 'border-[#2a3260]' : 'border-red-500'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white`}
+              className={`w-full px-4 py-3 mt-2 bg-[#1d2451]/50 border ${domainAvailable ? 'border-[#2a3260]' : 'border-red-500'} rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-blue-500 text-white`}
               placeholder="Enter company name"
             />
           </div>
@@ -325,7 +325,7 @@ const AdminAuth = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f1020] to-[#1a1a2e] text-white p-4">
         <div className="w-[85%] max-w-md z-10 bg-[#121630]/80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border border-[#2a3260] text-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-600">
-            Welcome, {formData.username}!
+            Welcome!
           </h1>
           <p className="mt-4 text-gray-300">You have successfully logged in.</p>
           <button
